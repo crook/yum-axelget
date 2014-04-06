@@ -26,10 +26,13 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 import os, sys, time, datetime, glob
+import os.path
+import threading
 import yum
 from yum import misc
 from yum.drpm import DeltaInfo, DeltaPackage
 from yum.plugins import PluginYumExit, TYPE_CORE, TYPE_INTERACTIVE
+from urlgrabber.progress import TextMeter
 
 requires_api_version = '2.3'
 plugin_type = (TYPE_CORE,)
@@ -39,6 +42,18 @@ trymirrornum=-1
 maxconn=5
 httpdownloadonly=False
 cleanOnException=0
+
+class Axel(threading.Thread):
+    """A thread to do axel download work"""
+
+    def __init__(self, cmd):
+        threading.Thread.__init__(self)
+        self.cmd = cmd
+
+    def run(self):
+        ret = os.system(self.cmd)
+        return ret
+
 
 def is_plugin_exists(name):
     """
@@ -52,17 +67,47 @@ def is_plugin_exists(name):
     return name
 
 
-def exec_axel(conduit, remote, local, conn=None):
+def exec_axel(conduit, remote, local, size, conn=None):
     """ Run axel binary to download"""
 
-    opt = "-a " # wget like status bar
+    opt = "-q " # quite mode
     # specify an alternative number of connections here.
+    if not size:
+        size = 0
     if conn:
         opt += "-n %s"%conn
     cmd = "axel %s %s -o %s" %(opt, remote, local)
+
+    # new thread to run axel
     conduit.info(3, "Execute axel cmd:\n%s"  % cmd)
+    axel = Axel(cmd)
+    axel.start()
+    # make axel outout look like yum output
+    tm = TextMeter()
+    size = int(size)
+    filename = os.path.basename(local)
+    # compose text console output
+    tm.start(filename=filename, size=size,text=filename)
+
+    curSize = 0
+    while True:
+        if curSize >= size:
+            break
+
+        try:
+            curSize = os.path.getsize(local)
+        except OSError, e:
+            # maybe axel still don't generate local file
+            # just continue to the following time call
+            curSize = 1
+            pass
+
+        tm.update(curSize)
+        time.sleep(1)
+
     # no need to care about the result
-    os.system(cmd)
+    tm.end(size)
+    axel.join(timeout=3600)
 
 def download_drpm(conduit, pkgs):
     """
@@ -98,12 +143,19 @@ def download_drpm(conduit, pkgs):
         #  /var/cache/yum/x86_64/20/updates/packages/bash-4.2.45-4.fc20_4.2.46-4.fc20.x86_64.drpm
         deltapath = dp.localPkg()
 
+        # skip the size is less then ena
+        totsize = long(dp.size)
+        if totsize <= enablesize:
+            conduit.info(3, "skip %s since its size(%s) lesss then enablesize(%s)" %(str(dp),totsize, enablesize))
+            continue
+
+
         fastest = get_fastest_mirror(dp.repo.urls)
         # relativepath format is like 'drpms/package-name.fc12.i686.drpm'
         remoteURL = os.path.join(fastest, dp.relativepath)
 
         if not os.path.exists(deltapath):
-            exec_axel(conduit, remoteURL, deltapath)
+            exec_axel(conduit, remoteURL, deltapath, totsize)
 
         if dp.verifyLocalPkg():
             #presto.rebuild(dp)
@@ -132,50 +184,53 @@ def get_metadata_list(repo, repomd, localFlag):
         try:
             md = yum.repoMDObject.RepoMD(repo.id, repomd)
         except yum.Errors.RepoMDError, e:
-            print "load %s failed:%s" %(repomd, str(e))
+            #print "load %s failed:%s" %(repomd, str(e))
             # load repmod file error, break
             return metadata_list
 
         # choose what metadata need to download based on mdpolicy
-        mdtypes = repo._mdpolicy2mdtypes()
-        all_mdtypes = ['group', 'filelists', 'group_gz', 'primary', 
-                       'primary_db', 'other_db', 'other',
+        #mdtypes = repo._mdpolicy2mdtypes()
+        mdtypes = []
+        all_mdtypes = ['group', 'filelists', 'group_gz', 'primary', "pkgtags",
+                       'primary_db', 'other_db', 'other', "prestodelta"
                        'filelists_db', 'updateinfo']
 
-        #if repo.mdpolicy in ["instant", "group:all"]:
-        #    mdtypes.extend(all_mdtypes)
-        #if repo.mdpolicy in ["group:main"]:
-        #    mdtypes.extend(["primary", "primary_db", "filelists", "group",
-        #                    "filelist_db", "group_gz", "updateinfo"])
-        #if repo.mdpolicy in ["group:small"]:
-        #    mdtypes.extend(["primary", "primary_db", "updateinfo"])
-        #if repo.mdpolicy in ["group:primary"]:
-        #    mdtypes.extend(["primary", "primary_db"])
-
-        # consider presto plugin
-        mdtypes.append('prestodelta')
+        # repo.mdpolicy is ["group:small"]
+        mdpolicy = "".join(repo.mdpolicy)
+        if mdpolicy in ["instant", "group:all"]:
+            mdtypes.extend(all_mdtypes)
+        if mdpolicy in ["group:main"]:
+            mdtypes.extend(["primary", "primary_db", "filelists", "group","prestodelta",
+                            "filelist_db", "group_gz", "updateinfo", "pkgtags"])
+        if mdpolicy in ["group:small"]:
+            mdtypes.extend(["primary", "primary_db", "group",
+                            "group_gz", "updateinfo", "pkgtags"])
+        if mdpolicy in ["group:primary"]:
+            mdtypes.extend(["primary", "primary_db"])
 
         # parser metadata file
         for ft in md.fileTypes():
 
             if ft not in mdtypes:
+                #print "%s is not in mdtypes"%ft
                 continue
 
             try:
                 repoData = md.getData(ft)
             except yum.Errors.RepoMDError:
-                conduit.info(2, "requested datatype %s not available" % ft)
+                #print "requested datatype %s not available" % ft
                 pass
             else:
                 (type, location) = repoData.location
                 filename = os.path.basename(location)
+                size = repoData.size
                 local_filename = os.path.join(repo.cachedir, filename)
 
                 if localFlag: 
-                    tuple = (ft, local_filename)
+                    tuple = (ft, local_filename,size)
                     metadata_list.append(tuple)
                 else:
-                    tuple = (ft, location)
+                    tuple = (ft, location,size)
                     metadata_list.append(tuple)
 
         return metadata_list
@@ -190,8 +245,8 @@ def init_hook(conduit):
     cleanOnException=conduit.confInt('main','cleanOnException',default=0)
     return
 
-def postreposetup_hook(conduit):
-    conduit.info(3, 'post repo setup')
+def prereposetup_hook(conduit):
+    conduit.info(3, 'pre repo setup')
 
     repos = conduit.getRepos()
     conf = conduit.getConf()
@@ -228,7 +283,7 @@ def postreposetup_hook(conduit):
 
             if os.path.exists(localMDFile):
                 # remove metadata download last time
-                for (mdtype, filename) in get_metadata_list(repo, localMDFile, True):
+                for (mdtype, filename, size) in get_metadata_list(repo, localMDFile, True):
                     if os.path.exists(filename):
                         os.unlink(filename)
     
@@ -256,7 +311,7 @@ def postreposetup_hook(conduit):
         # repo.repoXML
 
         # load metadata file
-        for (mdtype, remote) in get_metadata_list(repo, localMDFile, False):
+        for (mdtype, remote, size) in get_metadata_list(repo, localMDFile, False):
 
             filename = os.path.basename(remote)
             remoteURL = os.path.join(fastest, remote)
@@ -267,7 +322,7 @@ def postreposetup_hook(conduit):
                 dbFile = localFile.replace('.bz2', '')
 
             if (not os.path.exists(localFile)) and (not os.path.exists(dbFile)):
-                exec_axel(conduit, remoteURL, localFile)
+                exec_axel(conduit, remoteURL, localFile, size)
             
         conduit.info(2, "update %s metadata sucessfully" %repo.id)
 
@@ -319,7 +374,7 @@ def predownload_hook(conduit):
         ret = False
 
         if totsize <= enablesize:
-            conduit.info(2, "[%d/%d]Size of %s package in %s repo is less than %d bytes,Skip multi-thread!" %
+            conduit.info(2, "[%d/%d]Size of %s package in %s repo is less than enablesize %d bytes,Skip multi-thread!" %
                                                       (PkgIdx, TotalPkg, po.name, po.repo.id, enablesize))
             continue
         else:
@@ -369,7 +424,7 @@ def predownload_hook(conduit):
                 break
 
             remoteurl =  os.path.join(url, po.remote_path)
-            exec_axel(conduit,remoteurl,local,connnum)
+            exec_axel(conduit,remoteurl,local,totsize,connnum)
             time.sleep(1)
 
             if os.path.exists(local+".st"):
@@ -407,7 +462,9 @@ if __name__ == "__main__":
     up_repo = yb.repos.findRepos('updates')[0]
     remd_file = os.path.join(up_repo.cachedir, 'repomd.xml')
     print "updates repo metadata: ", get_metadata_list(up_repo, remd_file, True)
+    print "updates repo metadata: ", get_metadata_list(up_repo, remd_file, False)
 
     fedora_repo = yb.repos.findRepos('fedora')[0]
     fedora_file = os.path.join(fedora_repo.cachedir, 'repomd.xml')
     print "fedora repo metadata: ",get_metadata_list(fedora_repo, fedora_file, True)
+    print "fedora repo metadata: ",get_metadata_list(fedora_repo, fedora_file, False)
