@@ -67,13 +67,16 @@ def is_plugin_exists(name):
     return name
 
 
-def exec_axel(conduit, remote, local, size, conn=None):
+def exec_axel(conduit, remote, local, size, conn=None, text=None):
     """ Run axel binary to download"""
+
+    if not size or size == -1:
+        # we need size here. if not, we do nothing
+        conduit.info(3, "axel got unknow size")
+        return
 
     opt = "-q " # quite mode
     # specify an alternative number of connections here.
-    if not size:
-        size = 0
     if conn:
         opt += "-n %s"%conn
     cmd = "axel %s %s -o %s" %(opt, remote, local)
@@ -86,8 +89,10 @@ def exec_axel(conduit, remote, local, size, conn=None):
     tm = TextMeter()
     size = int(size)
     filename = os.path.basename(local)
+    if not text:
+        text = filename
     # compose text console output
-    tm.start(filename=filename, size=size,text=filename)
+    tm.start(filename=filename, size=size,text=str(text))
 
     curSize = 0
     while True:
@@ -99,15 +104,15 @@ def exec_axel(conduit, remote, local, size, conn=None):
         except OSError, e:
             # maybe axel still don't generate local file
             # just continue to the following time call
-            curSize = 1
+            curSize = 0
             pass
 
         tm.update(curSize)
         time.sleep(1)
 
     # no need to care about the result
-    tm.end(size)
-    axel.join(timeout=3600)
+    tm.end(curSize)
+    axel.join(timeout=600)
 
 def download_drpm(conduit, pkgs):
     """
@@ -183,6 +188,7 @@ def get_metadata_list(repo, repomd, localFlag):
 
         try:
             md = yum.repoMDObject.RepoMD(repo.id, repomd)
+            #md.dump()
         except yum.Errors.RepoMDError, e:
             #print "load %s failed:%s" %(repomd, str(e))
             # load repmod file error, break
@@ -223,14 +229,17 @@ def get_metadata_list(repo, repomd, localFlag):
             else:
                 (type, location) = repoData.location
                 filename = os.path.basename(location)
+                # some data don't have size, like pkgtags
                 size = repoData.size
+                if not size:
+                    size = -1
                 local_filename = os.path.join(repo.cachedir, filename)
 
                 if localFlag: 
-                    tuple = (ft, local_filename,size)
+                    tuple = (ft, local_filename,int(size))
                     metadata_list.append(tuple)
                 else:
-                    tuple = (ft, location,size)
+                    tuple = (ft, location,int(size))
                     metadata_list.append(tuple)
 
         return metadata_list
@@ -316,17 +325,22 @@ def prereposetup_hook(conduit):
             filename = os.path.basename(remote)
             remoteURL = os.path.join(fastest, remote)
             localFile = os.path.join(repo.cachedir, filename)
+            if size < enablesize:
+                conduit.info(3, "skip %s since its size(%s) lesss then enablesize(%s)" %(filename, size, enablesize))
+                continue
             
             dbFile = localFile
             if mdtype.endswith("_db"):
                 dbFile = localFile.replace('.bz2', '')
 
             if (not os.path.exists(localFile)) and (not os.path.exists(dbFile)):
-                exec_axel(conduit, remoteURL, localFile, size)
-            
-        conduit.info(2, "update %s metadata sucessfully" %repo.id)
 
-    conduit.info(2, "Finish Download MetaData of Enabled Repo")
+                text = "%s/%s" %(repo.id, mdtype)
+                exec_axel(conduit, remoteURL, localFile, size, text=text)
+            
+        conduit.info(2, "update %s metadata successfully" %repo.id)
+
+    conduit.info(3, "Finish Download MetaData of Enabled Repo")
 
 def predownload_hook(conduit):
 
@@ -364,7 +378,7 @@ def predownload_hook(conduit):
                 break
 
         if check_drpm_flag:
-            conduit.info(2, "[%d/%d]%s has been downloaded for package %s, skip full rpm download" %
+            conduit.info(3, "[%d/%d]%s has been downloaded for package %s, skip full rpm download" %
                                                       (PkgIdx, TotalPkg, drpm_name, po.name))
             continue
 
@@ -374,11 +388,11 @@ def predownload_hook(conduit):
         ret = False
 
         if totsize <= enablesize:
-            conduit.info(2, "[%d/%d]Size of %s package in %s repo is less than enablesize %d bytes,Skip multi-thread!" %
+            conduit.info(3, "[%d/%d]Size of %s package in %s repo is less than enablesize %d bytes,Skip multi-thread!" %
                                                       (PkgIdx, TotalPkg, po.name, po.repo.id, enablesize))
             continue
         else:
-            conduit.info(2, "[%d/%d]Ok, try to use axel to download the following big file: %d bytes" %(PkgIdx, TotalPkg, totsize))
+            conduit.info(3, "[%d/%d]Ok, try to use axel to download the following big file: %d bytes" %(PkgIdx, TotalPkg, totsize))
     
         # Get local pkg info
         local = po.localPkg()
