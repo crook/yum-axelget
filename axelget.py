@@ -46,13 +46,38 @@ cleanOnException=0
 class Axel(threading.Thread):
     """A thread to do axel download work"""
 
-    def __init__(self, cmd):
+    COMMAND = 'axel'
+
+    def __init__(self, debug=False, **kwargs):
         threading.Thread.__init__(self)
-        self.cmd = cmd
+        self.debug  = debug
+        self.remote = kwargs.get('remote', '')
+        self.local  = kwargs.get('local', '')
+        self.conn   = kwargs.get('conn', None)
+        threading.Thread.__init__(self)
+
+        self.__return = None
+        self._init_cmd()
+
+    def _init_cmd(self):
+
+        opt = "-q " # quite mode
+        if self.debug:
+            opt = "-a "
+        # specify an alternative number of connections here.
+        if self.conn:
+            opt += "-n %s"%self.conn
+        self.cmd = "axel %s %s -o %s" %(opt, self.remote, self.local)
+
+    def stop(self):
+        self._Thread__stop()
 
     def run(self):
-        ret = os.system(self.cmd)
-        return ret
+        self.__return = os.system(self.cmd)
+
+    @property
+    def output(self):
+        return self.__return
 
 
 def is_plugin_exists(name):
@@ -75,16 +100,16 @@ def exec_axel(conduit, remote, local, size, conn=None, text=None):
         conduit.info(3, "axel got unknow size")
         return
 
-    opt = "-q " # quite mode
-    # specify an alternative number of connections here.
-    if conn:
-        opt += "-n %s"%conn
-    cmd = "axel %s %s -o %s" %(opt, remote, local)
-
     # new thread to run axel
-    conduit.info(3, "Execute axel cmd:\n%s"  % cmd)
-    axel = Axel(cmd)
+    conf = conduit.getConf()
+    axel_debug = False
+    if conf.debuglevel >=3:
+        axel_debug = True
+    axel = Axel(debug=axel_debug,remote=remote,local=local,conn=conn)
     axel.start()
+    # wait for axel to get little size
+    time.sleep(0.5)
+
     # make axel outout look like yum output
     tm = TextMeter()
     size = int(size)
@@ -94,9 +119,12 @@ def exec_axel(conduit, remote, local, size, conn=None, text=None):
     # compose text console output
     tm.start(filename=filename, size=size,text=str(text))
 
-    curSize = 0
+    lastSize = curSize = 0
+    slow_count = 0
     while True:
-        if curSize >= size:
+
+        if curSize >= size or not axel.isAlive():
+            conduit.info(3, "axel download finish")
             break
 
         try:
@@ -107,8 +135,22 @@ def exec_axel(conduit, remote, local, size, conn=None, text=None):
             curSize = 0
             pass
 
+        # update the text bar every one second
         tm.update(curSize)
         time.sleep(1)
+
+        # too slow, Less than 1000 bytes/sec transferred
+        # the last 30 second
+        if (curSize - lastSize) < 1000:
+            slow_count +=1
+            if slow_count == 30:
+                conduit.info(3, "Operation too slow. Less than 1000 \
+bytes/sec transferred the last 30 seconds")
+                axel.stop()
+                break
+
+        lastSize = curSize
+    # end while
 
     # no need to care about the result
     tm.end(curSize)
