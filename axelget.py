@@ -107,8 +107,6 @@ def exec_axel(conduit, remote, local, size, conn=None, text=None):
         axel_debug = True
     axel = Axel(debug=axel_debug,remote=remote,local=local,conn=conn)
     axel.start()
-    # wait for axel to get little size
-    time.sleep(0.5)
 
     # make axel outout look like yum output
     tm = TextMeter()
@@ -123,8 +121,10 @@ def exec_axel(conduit, remote, local, size, conn=None, text=None):
     slow_count = 0
     while True:
 
-        if curSize >= size or not axel.isAlive():
-            conduit.info(3, "axel download finish")
+        live = axel.isAlive()
+        if curSize >= size or not live:
+            if live:
+                conduit.info(3, "axel is still alive")
             break
 
         try:
@@ -137,13 +137,13 @@ def exec_axel(conduit, remote, local, size, conn=None, text=None):
 
         # update the text bar every one second
         tm.update(curSize)
-        time.sleep(1)
+        time.sleep(0.5)
 
         # too slow, Less than 1000 bytes/sec transferred
         # the last 30 second
         if (curSize - lastSize) < 1000:
             slow_count +=1
-            if slow_count == 30:
+            if slow_count == 60:
                 conduit.info(3, "Operation too slow. Less than 1000 \
 bytes/sec transferred the last 30 seconds")
                 axel.stop()
@@ -152,9 +152,13 @@ bytes/sec transferred the last 30 seconds")
         lastSize = curSize
     # end while
 
-    # no need to care about the result
-    tm.end(curSize)
     axel.join(timeout=600)
+    if axel.output == 0:
+        tm.end(size)
+    else:
+        tm.end(curSize)
+
+    return axel.output
 
 def download_drpm(conduit, pkgs):
     """
@@ -194,6 +198,7 @@ def download_drpm(conduit, pkgs):
         totsize = long(dp.size)
         if totsize <= enablesize:
             conduit.info(3, "skip %s since its size(%s) lesss then enablesize(%s)" %(str(dp),totsize, enablesize))
+            downloaded_drpm_pkgs.append((dp, False))
             continue
 
 
@@ -201,12 +206,18 @@ def download_drpm(conduit, pkgs):
         # relativepath format is like 'drpms/package-name.fc12.i686.drpm'
         remoteURL = os.path.join(fastest, dp.relativepath)
 
+        result = False
         if not os.path.exists(deltapath):
-            exec_axel(conduit, remoteURL, deltapath, totsize)
+            result = exec_axel(conduit, remoteURL, deltapath, totsize)
 
-        if dp.verifyLocalPkg():
+        #if dp.verifyLocalPkg():
             #presto.rebuild(dp)
-            downloaded_drpm_pkgs.append(dp)
+
+        success = result == 0 or dp.verifyLocalPkg()
+        # no matter with success or failure, we need mark DRPM there
+        # so later yum core will still download the DRPM other than
+        # use axel to full rpm package
+        downloaded_drpm_pkgs.append((dp,success))
 
     return downloaded_drpm_pkgs
 
@@ -255,6 +266,8 @@ def get_metadata_list(repo, repomd, localFlag):
                             "group_gz", "updateinfo", "pkgtags"])
         if mdpolicy in ["group:primary"]:
             mdtypes.extend(["primary", "primary_db"])
+
+        mdtypes.append('prestodelta')
 
         # parser metadata file
         for ft in md.fileTypes():
@@ -408,19 +421,24 @@ def predownload_hook(conduit):
     for po in pkgs:
         PkgIdx+=1
 
-        # Skip drpms which has been downloaded.
-        check_drpm_flag = False
-        for deltaPackage in downloaded_drpm_pkgs:
+        # Skip drpms which has been process.
+        checked_drpm_flag = False
+        for (deltaPackage, success) in downloaded_drpm_pkgs:
             # Print deltaInfo['filename']
             if po.name == deltaPackage.name:
-                conduit.info(3, "%s drpm downloaded, skip full rpm" % po.name)
-                check_drpm_flag = True
-                # save drpm name for future
-                drpm_name = os.path.basename(deltaPackage.localpath)
-                break
+                if success:
+                    conduit.info(3, "success to download %s drpm, skip full rpm" % po.name)
+                else:
+                    conduit.info(3, "fail to download %s drpm, yum core will continue" %po.name)
 
-        if check_drpm_flag:
-            conduit.info(3, "[%d/%d]%s has been downloaded for package %s, skip full rpm download" %
+                # DRPM have been process
+                drpm_name = os.path.basename(deltaPackage.localpath)
+                checked_drpm_flag = True
+                break
+        # end for
+
+        if checked_drpm_flag:
+            conduit.info(3, "(%d/%d): %s has drpm for package %s, skip full rpm download" %
                                                       (PkgIdx, TotalPkg, drpm_name, po.name))
             continue
 
@@ -430,11 +448,11 @@ def predownload_hook(conduit):
         ret = False
 
         if totsize <= enablesize:
-            conduit.info(3, "[%d/%d]Size of %s package in %s repo is less than enablesize %d bytes,Skip multi-thread!" %
+            conduit.info(3, "(%d/%d): Size of %s package in %s repo is less than enablesize %d bytes,Skip multi-thread!" %
                                                       (PkgIdx, TotalPkg, po.name, po.repo.id, enablesize))
             continue
         else:
-            conduit.info(3, "[%d/%d]Ok, try to use axel to download the following big file: %d bytes" %(PkgIdx, TotalPkg, totsize))
+            conduit.info(3, "(%d/%d): Ok, try to use axel to download the following big file: %d bytes" %(PkgIdx, TotalPkg, totsize))
     
         # Get local pkg info
         local = po.localPkg()
