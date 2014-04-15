@@ -1,5 +1,5 @@
 %define build_number 0.4
-%define snapshot .20140405
+%define snapshot .20140415
 %define source_folder yum-axelget-svn-trunk
 Name:           yum-axelget
 Version:        1.0
@@ -9,8 +9,8 @@ Summary:        Yum plugin to download big files with axel
 
 Group:          System Environment/Base
 License:        GPLv2
-URL:            http://yum-axelget.googlecode.com
-Source0: http://yum-axelget.googlecode.com/files/yum-axelget-%{version}%{?snapshot}.tar.gz
+URL:            https://github.com/crook/yum-axelget
+Source0: https://github.com/crook/yum-axelget/releases/yum-axelget-%{version}%{?snapshot}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 #BuildRequires:
@@ -21,7 +21,7 @@ Developed by Ray Chen and Wesley Wang from China.
 Built by Amos Kong <kongjianjun@gmail.com>.
 
 The latest code can be found in SVN:
-http://yum-axelget.googlecode.com/svn/trunk
+https://github.com/crook/yum-axelget
 
 
 %prep

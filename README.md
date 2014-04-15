@@ -2,6 +2,12 @@
 
 Yum-axelget is a plugin for yum that accelerates download rate with multi-threads by axel. 
 
+Feature:
+
+ - Use axel to download rpm pakcage, as well as delta package(a.k.a drpm or presto)
+ - Also download repo metadata based on yum.conf.mdpolicy 
+ - Format the output of axel and let it look like default yum progress bar
+
 ## Download
 
 You can get the program from https://github.com/crook/yum-axelget/releases
@@ -16,14 +22,14 @@ or:
 
 ## Debug
 
-Run "sudo python /usr/bin/yum --debuglevel=3 <Yum Command>"
+Run "sudo python /usr/bin/yum --debuglevel=3 YumCommand"
 
 Please send the console output of the above command for help and support
 
 ## Contribution
 
 - Get code from https://github.com/crook/yum-axelget
-- Change and test in your localhot
+- Change and test in your localhost
 - Send pull request to https://github.com/crook/yum-axelget
 - You can also help to review patches in https://github.com/crook/yum-axelget/pulls
 

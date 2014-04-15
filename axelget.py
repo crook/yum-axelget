@@ -98,7 +98,7 @@ def exec_axel(conduit, remote, local, size, conn=None, text=None):
     if not size or size == -1:
         # we need size here. if not, we do nothing
         conduit.info(3, "axel got unknow size")
-        return
+        return False
 
     # new thread to run axel
     conf = conduit.getConf()
@@ -124,7 +124,7 @@ def exec_axel(conduit, remote, local, size, conn=None, text=None):
         live = axel.isAlive()
         if curSize >= size or not live:
             if live:
-                conduit.info(3, "axel is still alive")
+                conduit.info(3, "axel is unexpctedly still alive")
             break
 
         try:
@@ -158,13 +158,13 @@ bytes/sec transferred the last 30 seconds")
     else:
         tm.end(curSize)
 
-    return axel.output
+    # return True if axel run well
+    return axel.output == 0
 
 def download_drpm(conduit, pkgs):
     """
     Download delta rpm.
     """
-    presto_info = {}
     downloaded_drpm_pkgs = []
 
     # dummy error handle function
@@ -176,15 +176,23 @@ def download_drpm(conduit, pkgs):
 
     # Be careful here, 'pkgs' parameter is called by object reference
     # which mean it's mutable
-    presto = DeltaInfo(conduit._base, pkgs, adderror)
+    try:
+        # Not sure the presto has been merged into yum core here, so
+        # it will skip download drpm if any issue
+        from yum.drpm import DeltaInfo, DeltaPackage
+        presto = DeltaInfo(conduit._base, pkgs, adderror)
+    except ImportError, e:
+        conduit.info(3, "Get presto DeltaInfo failed, skip download drpm")
+        return downloaded_drpm_pkgs
+
     if not pkgs:
         conduit.info(3, "Not found any avariable drpm")
-        return downloaded_drpm_pkgs
+    else:
+        conduit.info(3, "Start download DRPM using axel")
 
     # See which deltas we need to download; if the delta is already
     # downloaded, we can start it reconstructing in the background
-    conduit.info(3, "Start download DRPM using axel")
-    for dp in pkgs:
+    for index, dp in enumerate(pkgs):
 
         if not isinstance(dp, DeltaPackage):
             continue
@@ -213,7 +221,7 @@ def download_drpm(conduit, pkgs):
         #if dp.verifyLocalPkg():
             #presto.rebuild(dp)
 
-        success = result == 0 or dp.verifyLocalPkg()
+        success = result or dp.verifyLocalPkg()
         # no matter with success or failure, we need mark DRPM there
         # so later yum core will still download the DRPM other than
         # use axel to full rpm package
@@ -400,7 +408,6 @@ def predownload_hook(conduit):
 
     global enablesize,cleanOnException,httpdownloadonly
     preffermirror=""
-    PkgIdx=0
     drpm_name=""
 
     pkgs = conduit.getDownloadPackages()
@@ -409,16 +416,13 @@ def predownload_hook(conduit):
     # will modify the input parameter 'pkglist'. That will eventually leads to
     # unexpectedly modify conduit._pkglist which will be used later in yum main
     # workflow code. Don't remove this copy
-    pkglist = []
-    for po in pkgs:
-        pkglist.append(po)
+    pkglist = [ po for po in pkgs ]
 
     # Download drpm
     downloaded_drpm_pkgs = download_drpm(conduit, pkglist)
 
     TotalPkg=len(pkgs)
-    for po in pkgs:
-        PkgIdx+=1
+    for PkgIdx, po in enumerate(pkgs, start=1):
 
         # Skip drpms which has been process.
         checked_drpm_flag = False
