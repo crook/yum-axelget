@@ -531,7 +531,7 @@ if __name__ == "__main__":
     mirrors = ['http://ftp.riken.jp/Linux/fedora/' + release_path,
                'http://mirrors.163.com/fedora/' + release_path,
                'http://mirrors.sohu.com/fedora/' + release_path,
-               'http://ftp.nchu.edu.tw/Linux/fedora/' + release_path,
+               'http://ftp.nchu.edu.tw/Linux/Fedora/' + release_path,
                'http://kambing.ui.edu/fedora/' + release_path]
 
     sys.path.append('/usr/lib/yum-plugins')
