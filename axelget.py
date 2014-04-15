@@ -529,10 +529,10 @@ def get_release_ver():
 if __name__ == "__main__":
     release_path = 'releases/' + get_release_ver() + '/Everything/i386/os/'
     mirrors = ['http://ftp.riken.jp/Linux/fedora/' + release_path,
-               'http://kambing.ui.edu/fedora/' + release_path,
                'http://mirrors.163.com/fedora/' + release_path,
                'http://mirrors.sohu.com/fedora/' + release_path,
-               'http://ftp.nchu.edu.tw/Linux/fedora/' + release_path]
+               'http://ftp.nchu.edu.tw/Linux/fedora/' + release_path,
+               'http://kambing.ui.edu/fedora/' + release_path]
 
     sys.path.append('/usr/lib/yum-plugins')
     print get_fastest_mirror(mirrors)
