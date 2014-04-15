@@ -301,7 +301,6 @@ def get_metadata_list(repo, repomd, localFlag):
 
 def init_hook(conduit):
     global enablesize,trymirrornum,maxconn,cleanOnException,httpdownloadonly
-    global maxhostfileage
     enablesize = conduit.confInt('main','enablesize',default=300000)
     trymirrornum = conduit.confInt('main','trymirrornum',default=-1)
     maxconn = conduit.confInt('main','maxconn',default=5)
@@ -328,7 +327,7 @@ def prereposetup_hook(conduit):
         need_download_mdFile = True
         if os.path.exists(localMDFile):
             if repo.metadataCurrent():
-                # if md file is smaller than maxhostfileage, 
+                # if the age of md file is less than metadata_expire, 
                 # don't need update it!
                 need_download_mdFile = False
 
