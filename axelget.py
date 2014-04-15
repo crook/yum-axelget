@@ -327,7 +327,7 @@ def prereposetup_hook(conduit):
 
         need_download_mdFile = True
         if os.path.exists(localMDFile):
-            if repo.withinCacheAge(localMDFile, repo.metadata_expire):
+            if repo.metadataCurrent():
                 # if md file is smaller than maxhostfileage, 
                 # don't need update it!
                 need_download_mdFile = False
