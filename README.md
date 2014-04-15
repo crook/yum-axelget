@@ -1,26 +1,40 @@
-1. Overview
-=================
+## Overview
+
 Yum-axelget is a plugin for yum that accelerates download rate with multi-threads by axel. 
 
+## Download
 
-2. Installation
-=================
+You can get the program from https://github.com/crook/yum-axelget/releases
+
+## Installation
+
 Run 'sudo python setup.py install' in source directory.
 or:
-sudo cp axelget.conf /etc/yum/pluginconf.d/
-sudo cp axelget.py  /usr/lib/yum-plugins/
 
+    sudo cp axelget.conf /etc/yum/pluginconf.d/
+    sudo cp axelget.py  /usr/lib/yum-plugins/
 
-3. Debug
-=================
+## Debug
+
 Run "sudo python /usr/bin/yum --debuglevel=3 <Yum Command>"
+
 Please send the console output of the above command for help and support
 
+## Contribution
 
-4. Help&Support
-=================
-Please send email to Ray Chen <chenrano2002@gmail.com> for any issue.
-or visit this website for help
+- Get code from https://github.com/crook/yum-axelget
+- Change and test in your localhot
+- Send pull request to https://github.com/crook/yum-axelget
+- You can also help to review patches in https://github.com/crook/yum-axelget/pulls
+
+## Help&Support
+
+Please report your problem by create a new issue in github:
+https://github.com/crook/yum-axelget/issues
+
+Or send email to Ray Chen <chenrano2002@gmail.com>
+
+Or visit this website for help
 http://yum-axelget.googlecode.com/
 
 
