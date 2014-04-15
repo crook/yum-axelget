@@ -25,7 +25,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-import os, sys, time, datetime, glob
+import os, sys, time, datetime, glob, re
 import os.path
 import threading
 import yum
@@ -519,13 +519,20 @@ def predownload_hook(conduit):
             conduit.info (3,"Try to run rm cmd:%s"  % rmcmd)
             os.system(rmcmd)
 
+def get_release_ver():
+    f = open('/etc/issue', 'r')
+    issue = f.readlines()
+    f.close()
+    return re.findall('Fedora release (\d+)', issue[0])[0]
+
 
 if __name__ == "__main__":
-    mirrors = ['http://ftp.riken.jp/Linux/fedora/releases/20/Everything/i386/os/',
-               'http://kambing.ui.edu/fedora/releases/20/Everything/i386/os/',
-               'http://mirrors.163.com/fedora/releases/20/Everything/i386/os/',
-               'http://mirrors.sohu.com/fedora/releases/20/Everything/i386/os/',
-               'http://ftp.nchu.edu.tw/Linux/fedora/releases/20/Everything/i386/os/']
+    release_path = 'releases/' + get_release_ver() + '/Everything/i386/os/'
+    mirrors = ['http://ftp.riken.jp/Linux/fedora/' + release_path,
+               'http://mirrors.163.com/fedora/' + release_path,
+               'http://mirrors.sohu.com/fedora/' + release_path,
+               'http://ftp.nchu.edu.tw/Linux/Fedora/' + release_path,
+               'http://kambing.ui.edu/fedora/' + release_path]
 
     sys.path.append('/usr/lib/yum-plugins')
     print get_fastest_mirror(mirrors)
