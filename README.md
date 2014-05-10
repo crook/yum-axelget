@@ -14,6 +14,11 @@ You can get the program from https://github.com/crook/yum-axelget/releases
 
 ## Installation
 
+Now 'yum-axelget' are in Fedora Official Repository. 
+On Fedora, use this command to install:
+
+    sudo yum install yum-axelget
+
 Run 'sudo python setup.py install' in source directory.
 or:
 
@@ -22,7 +27,7 @@ or:
 
 ## Debug
 
-Run "sudo python /usr/bin/yum --debuglevel=3 YumCommand"
+Run "sudo /usr/bin/yum --debuglevel=3 YumCommand"
 
 Please send the console output of the above command for help and support
 

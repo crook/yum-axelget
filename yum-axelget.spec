@@ -10,7 +10,7 @@ Summary:        Yum plugin to download big files with axel
 Group:          System Environment/Base
 License:        GPLv2
 URL:            https://github.com/crook/yum-axelget
-Source0: https://github.com/crook/yum-axelget/releases/yum-axelget-%{version}%{?snapshot}.tar.gz
+Source0:        https://github.com/crook/yum-axelget/archive/v1.0.4.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 #BuildRequires:

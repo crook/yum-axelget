@@ -30,7 +30,6 @@ import os.path
 import threading
 import yum
 from yum import misc
-from yum.drpm import DeltaInfo, DeltaPackage
 from yum.plugins import PluginYumExit, TYPE_CORE, TYPE_INTERACTIVE
 from urlgrabber.progress import TextMeter
 
@@ -106,7 +105,6 @@ def exec_axel(conduit, remote, local, size, conn=None, text=None):
     if conf.debuglevel >=3:
         axel_debug = True
     axel = Axel(debug=axel_debug,remote=remote,local=local,conn=conn)
-    axel.start()
 
     # make axel outout look like yum output
     tm = TextMeter()
@@ -116,6 +114,7 @@ def exec_axel(conduit, remote, local, size, conn=None, text=None):
         text = filename
     # compose text console output
     tm.start(filename=filename, size=size,text=str(text))
+    axel.start()
 
     lastSize = curSize = 0
     slow_count = 0

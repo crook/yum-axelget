@@ -7,9 +7,10 @@ from setuptools import setup, find_packages
 setup (name = "yum-axelget",
     version = '1.0.4',
     packages = find_packages(), 
-    description = "Speed up download rate of yum with axel. ",
+    description = "Speed up download rate of yum with axel.",
     author = 'Ray Chen',
     author_email = 'chenrano2002@gmail.com',
+    home_page = "https://github.com/crook/yum-axelget",
     license = 'GPLv2+',
     platforms=["Linux"],
 
