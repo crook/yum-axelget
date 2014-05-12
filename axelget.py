@@ -2,7 +2,7 @@
 #
 # heavily modified from axelget.py created by
 #         Wesley Wang <cnwesleywang@gmail.com>
-# 
+#
 # @ Description:
 #   A plugin for the Yellowdog Updater Modified which enables YUM use
 #   multiple threads utility 'axel' to download packages.
@@ -10,7 +10,7 @@
 # @ Installation:
 #   You could download it from:
 #   https://github.com/crook/yum-axelget/releases
-# 
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
@@ -25,8 +25,14 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-import os, sys, time, datetime, glob, re
+import os
+import sys
+import time
+import datetime
+import glob
+import re
 import os.path
+import time
 import threading
 import yum
 from yum import misc
@@ -36,11 +42,12 @@ from urlgrabber.progress import TextMeter
 requires_api_version = '2.3'
 plugin_type = (TYPE_CORE,)
 
-enablesize=300000
-trymirrornum=-1
-maxconn=5
-httpdownloadonly=False
-cleanOnException=0
+enablesize = 300000
+trymirrornum = -1
+maxconn = 5
+httpdownloadonly = False
+cleanOnException = 0
+
 
 class Axel(threading.Thread):
     """A thread to do axel download work"""
@@ -48,25 +55,24 @@ class Axel(threading.Thread):
     COMMAND = 'axel'
 
     def __init__(self, debug=False, **kwargs):
-        threading.Thread.__init__(self)
-        self.debug  = debug
+        self.debug = debug
         self.remote = kwargs.get('remote', '')
-        self.local  = kwargs.get('local', '')
-        self.conn   = kwargs.get('conn', None)
+        self.local = kwargs.get('local', '')
+        self.conn = kwargs.get('conn', None)
         threading.Thread.__init__(self)
 
         self.__return = None
         self._init_cmd()
 
     def _init_cmd(self):
-
-        opt = "-q " # quite mode
+        opt = "-q "  # quite mode
         if self.debug:
             opt = "-a "
         # specify an alternative number of connections here.
         if self.conn:
-            opt += "-n %s"%self.conn
-        self.cmd = "axel %s %s -o %s" %(opt, self.remote, self.local)
+            opt += "-n %s" % (self.conn)
+        self.cmd = "%s %s %s -o %s" % (
+            self.COMMAND, opt, self.remote, self.local)
 
     def stop(self):
         self._Thread__stop()
@@ -86,7 +92,7 @@ def is_plugin_exists(name):
     try:
         name = __import__(name)
     except ImportError, e:
-        print "(Failed to load module %s: %s)" % (name , e)
+        print "(Failed to load module %s: %s)" % (name, e)
         return False
     return name
 
@@ -96,15 +102,16 @@ def exec_axel(conduit, remote, local, size, conn=None, text=None):
 
     if not size or size == -1:
         # we need size here. if not, we do nothing
-        conduit.info(3, "axel got unknow size")
+        conduit.info(3, "axel got unknown size")
         return False
 
     # new thread to run axel
     conf = conduit.getConf()
     axel_debug = False
-    if conf.debuglevel >=3:
+    if conf.debuglevel >= 3:
         axel_debug = True
-    axel = Axel(debug=axel_debug,remote=remote,local=local,conn=conn)
+    axel = Axel(debug=axel_debug, remote=remote, local=local, conn=conn)
+    axel.start()
 
     # make axel outout look like yum output
     tm = TextMeter()
@@ -113,8 +120,8 @@ def exec_axel(conduit, remote, local, size, conn=None, text=None):
     if not text:
         text = filename
     # compose text console output
-    tm.start(filename=filename, size=size,text=str(text))
-    axel.start()
+    tm.start(filename=filename, size=size, text=str(text))
+    #axel.start()
 
     lastSize = curSize = 0
     slow_count = 0
@@ -123,7 +130,7 @@ def exec_axel(conduit, remote, local, size, conn=None, text=None):
         live = axel.isAlive()
         if curSize >= size or not live:
             if live:
-                conduit.info(3, "axel is unexpctedly still alive")
+                conduit.info(3, "axel is unexpectedly still alive")
             break
 
         try:
@@ -141,7 +148,7 @@ def exec_axel(conduit, remote, local, size, conn=None, text=None):
         # too slow, Less than 1000 bytes/sec transferred
         # the last 30 second
         if (curSize - lastSize) < 1000:
-            slow_count +=1
+            slow_count += 1
             if slow_count == 60:
                 conduit.info(3, "Operation too slow. Less than 1000 \
 bytes/sec transferred the last 30 seconds")
@@ -160,6 +167,7 @@ bytes/sec transferred the last 30 seconds")
     # return True if axel run well
     return axel.output == 0
 
+
 def download_drpm(conduit, pkgs):
     """
     Download delta rpm.
@@ -168,10 +176,11 @@ def download_drpm(conduit, pkgs):
 
     # dummy error handle function
     errors = {}
+
     def adderror(po, msg):
         errors.setdefault(po, []).append(msg)
         if po.localpath.endswith('.tmp'):
-            misc.unlink_f(po.localpath) # won't resume this..
+            misc.unlink_f(po.localpath)  # won't resume this..
 
     # Be careful here, 'pkgs' parameter is called by object reference
     # which mean it's mutable
@@ -196,18 +205,19 @@ def download_drpm(conduit, pkgs):
         if not isinstance(dp, DeltaPackage):
             continue
 
-        conduit.info(3, "Download %s using axel" %str(dp))
+        conduit.info(3, "Download %s using axel" % (dp))
         # localpath is like this:
-        #  /var/cache/yum/x86_64/20/updates/packages/bash-4.2.45-4.fc20_4.2.46-4.fc20.x86_64.drpm
+        # /var/cache/yum/x86_64/20/updates/packages/
+        # bash-4.2.45-4.fc20_4.2.46-4.fc20.x86_64.drpm
         deltapath = dp.localPkg()
 
         # skip the size is less then ena
         totsize = long(dp.size)
         if totsize <= enablesize:
-            conduit.info(3, "skip %s since its size(%s) lesss then enablesize(%s)" %(str(dp),totsize, enablesize))
+            conduit.info(3, "skip %s since its size(%s) lesss then \
+enablesize(%s)" % (dp, totsize, enablesize))
             downloaded_drpm_pkgs.append((dp, False))
             continue
-
 
         fastest = get_fastest_mirror(dp.repo.urls)
         # relativepath format is like 'drpms/package-name.fc12.i686.drpm'
@@ -224,9 +234,10 @@ def download_drpm(conduit, pkgs):
         # no matter with success or failure, we need mark DRPM there
         # so later yum core will still download the DRPM other than
         # use axel to full rpm package
-        downloaded_drpm_pkgs.append((dp,success))
+        downloaded_drpm_pkgs.append((dp, success))
 
     return downloaded_drpm_pkgs
+
 
 def get_fastest_mirror(mirrors):
     # If yum-fastestmirror is not found, assume the first url
@@ -235,10 +246,11 @@ def get_fastest_mirror(mirrors):
     if not fastestmirror:
         return mirrors[0]
 
-    # Returns the sorted list of mirrors according to the 
+    # Returns the sorted list of mirrors according to the
     # increasing response time of the mirrors
     sorted_list = fastestmirror.FastestMirror(mirrors).get_mirrorlist()
     return sorted_list[0]
+
 
 def get_metadata_list(repo, repomd, localFlag):
         """Parser repomd.xml file and return metadata url list"""
@@ -266,8 +278,9 @@ def get_metadata_list(repo, repomd, localFlag):
         if mdpolicy in ["instant", "group:all"]:
             mdtypes.extend(all_mdtypes)
         if mdpolicy in ["group:main"]:
-            mdtypes.extend(["primary", "primary_db", "filelists", "group","prestodelta",
-                            "filelist_db", "group_gz", "updateinfo", "pkgtags"])
+            mdtypes.extend(["primary", "primary_db", "filelists", "group",
+                            "prestodelta", "filelist_db", "group_gz",
+                            "updateinfo", "pkgtags"])
         if mdpolicy in ["group:small"]:
             mdtypes.extend(["primary", "primary_db", "group",
                             "group_gz", "updateinfo", "pkgtags"])
@@ -297,23 +310,26 @@ def get_metadata_list(repo, repomd, localFlag):
                     size = -1
                 local_filename = os.path.join(repo.cachedir, filename)
 
-                if localFlag: 
-                    tuple = (ft, local_filename,int(size))
+                if localFlag:
+                    tuple = (ft, local_filename, int(size))
                     metadata_list.append(tuple)
                 else:
-                    tuple = (ft, location,int(size))
+                    tuple = (ft, location, int(size))
                     metadata_list.append(tuple)
 
         return metadata_list
 
+
 def init_hook(conduit):
-    global enablesize,trymirrornum,maxconn,cleanOnException,httpdownloadonly
-    enablesize = conduit.confInt('main','enablesize',default=300000)
-    trymirrornum = conduit.confInt('main','trymirrornum',default=-1)
-    maxconn = conduit.confInt('main','maxconn',default=5)
-    httpdownloadonly=conduit.confBool('main','onlyhttp',default=False)
-    cleanOnException=conduit.confInt('main','cleanOnException',default=0)
+    global enablesize, trymirrornum, maxconn
+    global cleanOnException, httpdownloadonly
+    enablesize = conduit.confInt('main', 'enablesize', default=300000)
+    trymirrornum = conduit.confInt('main', 'trymirrornum', default=-1)
+    maxconn = conduit.confInt('main', 'maxconn', default=5)
+    httpdownloadonly = conduit.confBool('main', 'onlyhttp', default=False)
+    cleanOnException = conduit.confInt('main', 'cleanOnException', default=0)
     return
+
 
 def prereposetup_hook(conduit):
     conduit.info(3, 'pre repo setup')
@@ -334,7 +350,7 @@ def prereposetup_hook(conduit):
         need_download_mdFile = True
         if os.path.exists(localMDFile):
             if repo.metadataCurrent():
-                # if the age of md file is less than metadata_expire, 
+                # If the age of md file is less than metadata_expire,
                 # don't need update it!
                 need_download_mdFile = False
 
@@ -342,21 +358,21 @@ def prereposetup_hook(conduit):
             # get fastest mirror
             fastest = get_fastest_mirror(mirrors)
             if fastest.startswith("file://"):
-                conduit.info(3, "Skip local site: %s" % fastest)
+                conduit.info(3, "Skip local site: %s" % (fastest))
                 continue
 
             if fastest.startswith("ftp://") and httpdownloadonly:
-                conduit.info(3, "Skip ftp site: %s" %fastest)
+                conduit.info(3, "Skip ftp site: %s" % (fastest))
                 continue
 
-            conduit.info(3, "%s use fastest mirror: %s" %(repo.id, fastest))
+            conduit.info(3, "%s use fastest mirror: %s" % (repo.id, fastest))
 
             if os.path.exists(localMDFile):
                 # remove metadata download last time
-                for (mdtype, filename, size) in get_metadata_list(repo, localMDFile, True):
+                for (mdtype, filename, size) in get_metadata_list(
+                        repo, localMDFile, True):
                     if os.path.exists(filename):
                         os.unlink(filename)
-    
                     if mdtype.endswith("_db"):
                         local = filename.replace('.bz2', '')
                         if os.path.exists(local):
@@ -381,33 +397,34 @@ def prereposetup_hook(conduit):
         # repo.repoXML
 
         # load metadata file
-        for (mdtype, remote, size) in get_metadata_list(repo, localMDFile, False):
+        for (mdtype, remote, size) in get_metadata_list(
+                repo, localMDFile, False):
 
             filename = os.path.basename(remote)
             remoteURL = os.path.join(fastest, remote)
             localFile = os.path.join(repo.cachedir, filename)
             if size < enablesize:
-                conduit.info(3, "skip %s since its size(%s) lesss then enablesize(%s)" %(filename, size, enablesize))
+                conduit.info(3, "skip %s since its size(%s) lesss \
+then enablesize(%s)" % (filename, size, enablesize))
                 continue
-            
+
             dbFile = localFile
             if mdtype.endswith("_db"):
                 dbFile = localFile.replace('.bz2', '')
 
-            if (not os.path.exists(localFile)) and (not os.path.exists(dbFile)):
-
-                text = "%s/%s" %(repo.id, mdtype)
+            if (not os.path.exists(localFile)) and (
+                    not os.path.exists(dbFile)):
+                text = "%s/%s" % (repo.id, mdtype)
                 exec_axel(conduit, remoteURL, localFile, size, text=text)
-            
-        conduit.info(2, "update %s metadata successfully" %repo.id)
-
+        conduit.info(2, "update %s metadata successfully" % repo.id)
     conduit.info(3, "Finish Download MetaData of Enabled Repo")
+
 
 def predownload_hook(conduit):
 
-    global enablesize,cleanOnException,httpdownloadonly
-    preffermirror=""
-    drpm_name=""
+    global enablesize, cleanOnException, httpdownloadonly
+    preffermirror = ""
+    drpm_name = ""
 
     pkgs = conduit.getDownloadPackages()
 
@@ -415,12 +432,12 @@ def predownload_hook(conduit):
     # will modify the input parameter 'pkglist'. That will eventually leads to
     # unexpectedly modify conduit._pkglist which will be used later in yum main
     # workflow code. Don't remove this copy
-    pkglist = [ po for po in pkgs ]
+    pkglist = [po for po in pkgs]
 
     # Download drpm
     downloaded_drpm_pkgs = download_drpm(conduit, pkglist)
 
-    TotalPkg=len(pkgs)
+    TotalPkg = len(pkgs)
     for PkgIdx, po in enumerate(pkgs, start=1):
 
         # Skip drpms which has been process.
@@ -429,9 +446,11 @@ def predownload_hook(conduit):
             # Print deltaInfo['filename']
             if po.name == deltaPackage.name:
                 if success:
-                    conduit.info(3, "success to download %s drpm, skip full rpm" % po.name)
+                    conduit.info(3, "success to download %s drpm, \
+skip full rpm" % po.name)
                 else:
-                    conduit.info(3, "fail to download %s drpm, yum core will continue" %po.name)
+                    conduit.info(3, "fail to download %s drpm, yum \
+core will continue" % po.name)
 
                 # DRPM have been process
                 drpm_name = os.path.basename(deltaPackage.localpath)
@@ -440,8 +459,8 @@ def predownload_hook(conduit):
         # end for
 
         if checked_drpm_flag:
-            conduit.info(3, "(%d/%d): %s has drpm for package %s, skip full rpm download" %
-                                                      (PkgIdx, TotalPkg, drpm_name, po.name))
+            conduit.info(3, "(%d/%d): %s has drpm for package %s, \
+skip full rpm download" % (PkgIdx, TotalPkg, drpm_name, po.name))
             continue
 
         if hasattr(po, 'pkgtype') and po.pkgtype == 'local':
@@ -450,12 +469,14 @@ def predownload_hook(conduit):
         ret = False
 
         if totsize <= enablesize:
-            conduit.info(3, "(%d/%d): Size of %s package in %s repo is less than enablesize %d bytes,Skip multi-thread!" %
-                                                      (PkgIdx, TotalPkg, po.name, po.repo.id, enablesize))
+            conduit.info(3, "(%d/%d): Size of %s package in %s repo is \
+less than enablesize %d bytes, Skip multi-thread!" % (
+                PkgIdx, TotalPkg, po.name, po.repo.id, enablesize))
             continue
         else:
-            conduit.info(3, "(%d/%d): Ok, try to use axel to download the following big file: %d bytes" %(PkgIdx, TotalPkg, totsize))
-    
+            conduit.info(3, "(%d/%d): Ok, try to use axel to download \
+the following big file: %d bytes" % (PkgIdx, TotalPkg, totsize))
+
         # Get local pkg info
         local = po.localPkg()
 
@@ -463,64 +484,65 @@ def predownload_hook(conduit):
         # just skip it, go to next pkg
         if os.path.exists(local) and not os.path.exists(local + ".st"):
             if totsize == os.stat(local).st_size:
-                conduit.info(3,"Package already exists in cache dir,skip it!")
+                conduit.info(3, "Package already exists in cache dir,skip it!")
                 continue
 
         # Remove incomplete pkg
-        localall = "%s %s" % (local,local+".st")
+        localall = "%s %s" % (local, local+".st")
         rmcmd = "rm -f %s" % (localall)
 
         curmirroridx = 0
-        conduit.info(3,"Cleaning all key files")
+        conduit.info(3, "Cleaning all key files")
         os.system(rmcmd)
 
         # calculate number of connections
         connnum = totsize / enablesize
-        if connnum*enablesize<totsize:
-            connnum+=1
+        if connnum * enablesize < totsize:
+            connnum += 1
         if connnum > maxconn:
             connnum = maxconn
 
-        mirrors=[]
-        mirrors[:0]=po.repo.urls
+        mirrors = []
+        mirrors[:0] = po.repo.urls
         if preffermirror != "":
             mirrors[:0] = [preffermirror]
         for url in mirrors:
             if url.startswith("ftp://") and httpdownloadonly:
-                print "Skip Ftp Site:",url
+                conduct.info(2, "Skip Ftp Site: %s" % url)
                 continue
             if url.startswith("file://"):
-                print "Skip Local Site:",url
+                conduct.info(2, "Skip local Site: %s" % url)
                 continue
 
             curmirroridx += 1
             if (curmirroridx > trymirrornum) and (trymirrornum != -1):
-                conduit.info(2, "Package %s has tried %d mirrors,Skip plugin!" %
-                                                      (po.repo.id,trymirrornum))
+                conduit.info(2, "Package %s has tried %d mirrors,\
+Skip plugin!" % (po.repo.id, trymirrornum))
                 break
 
-            remoteurl =  os.path.join(url, po.remote_path)
-            exec_axel(conduit,remoteurl,local,totsize,connnum)
+            remoteurl = os.path.join(url, po.remote_path)
+            exec_axel(conduit, remoteurl, local, totsize, connnum)
             time.sleep(1)
 
             if os.path.exists(local+".st"):
-                conduit.info(3,"axel exit by exception, try another mirror")
+                conduit.info(3, "axel exit by exception, try another mirror")
                 if cleanOnException:
-                    conduit.info(3,"Because cleanOnException enabled, "
-                                              "remove key files first")
+                    conduit.info(3, "Because cleanOnException enabled \
+remove key files first")
                     os.system(rmcmd)
                 continue
 
             #this mirror may not update yet
-            elif not os.path.exists(local): 
+            elif not os.path.exists(local):
                 continue
             else:
                 ret = True
-                preffermirror=url
+                preffermirror = url
                 break
         if not ret:
-            conduit.info (3,"Try to run rm cmd:%s"  % rmcmd)
+            conduit.info(3, "Try to run rm cmd:%s" % rmcmd)
             os.system(rmcmd)
+
 
 def get_release_ver():
     f = open('/etc/issue', 'r')
@@ -544,10 +566,14 @@ if __name__ == "__main__":
     yb = yum.YumBase()
     up_repo = yb.repos.findRepos('updates')[0]
     remd_file = os.path.join(up_repo.cachedir, 'repomd.xml')
-    print "updates repo metadata: ", get_metadata_list(up_repo, remd_file, True)
-    print "updates repo metadata: ", get_metadata_list(up_repo, remd_file, False)
+    print "updates repo metadata with local path: "
+    print get_metadata_list(up_repo, remd_file, True)
+    print "updates repo metadata with online url: "
+    print get_metadata_list(up_repo, remd_file, False)
 
     fedora_repo = yb.repos.findRepos('fedora')[0]
     fedora_file = os.path.join(fedora_repo.cachedir, 'repomd.xml')
-    print "fedora repo metadata: ",get_metadata_list(fedora_repo, fedora_file, True)
-    print "fedora repo metadata: ",get_metadata_list(fedora_repo, fedora_file, False)
+    print "updates repo metadata with local path: "
+    print get_metadata_list(fedora_repo, fedora_file, True)
+    print "updates repo metadata with online url: "
+    print get_metadata_list(fedora_repo, fedora_file, False)
