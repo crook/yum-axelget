@@ -1,5 +1,5 @@
-%define build_number 0.4
-%define snapshot .20140415
+%define build_number 0.5
+%define snapshot .20140515
 %define source_folder yum-axelget-svn-trunk
 Name:           yum-axelget
 Version:        1.0
@@ -10,7 +10,7 @@ Summary:        Yum plugin to download big files with axel
 Group:          System Environment/Base
 License:        GPLv2
 URL:            https://github.com/crook/yum-axelget
-Source0:        https://github.com/crook/yum-axelget/archive/v1.0.4.tar.gz
+Source0:        https://github.com/crook/yum-axelget/archive/v1.0.5.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 #BuildRequires:
@@ -52,6 +52,10 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu May 15 2014 Ray Chen <chenrano2002@gmail.com> - 1.0-0.5.20140405
+- Update pep8 coding style
+- Skip import drpm module for old Centos/Fedora distribution
+
 * Sat Apr 05 2014 Ray Chen <chenrano2002@gmail.com> - 1.0-0.4.20140405
 - Removed required presto module since it's in yum core code now
 - Rewrite drpm download method with new yum presto API
