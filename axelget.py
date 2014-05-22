@@ -191,6 +191,9 @@ def download_drpm(conduit, pkgs):
         presto = DeltaInfo(conduit._base, pkgs, adderror)
     except ImportError, e:
         conduit.info(3, "Get presto DeltaInfo failed, skip download drpm")
+    except AttributeError, e:
+        conduit.info(3, 'AttributeError: %s' % str(e))
+    finally:
         return downloaded_drpm_pkgs
 
     if not pkgs:
@@ -211,10 +214,10 @@ def download_drpm(conduit, pkgs):
         # bash-4.2.45-4.fc20_4.2.46-4.fc20.x86_64.drpm
         deltapath = dp.localPkg()
 
-        # skip the size is less then ena
+        # skip the size is less then enablesize parameter
         totsize = long(dp.size)
         if totsize <= enablesize:
-            conduit.info(3, "skip %s since its size(%s) lesss then \
+            conduit.info(3, "skip %s since its size(%s) less then \
 enablesize(%s)" % (dp, totsize, enablesize))
             downloaded_drpm_pkgs.append((dp, False))
             continue
@@ -432,7 +435,13 @@ def predownload_hook(conduit):
     # will modify the input parameter 'pkglist'. That will eventually leads to
     # unexpectedly modify conduit._pkglist which will be used later in yum main
     # workflow code. Don't remove this copy
-    pkglist = [po for po in pkgs]
+
+    # Must filter YumLocalPackage since no need to download. i.e
+    #   yum localinstall /path/to/package
+    # isinstance(po.repo, yum.packages.FakeRepository)
+    pkglist = [po for po in pkgs if not isinstance(
+        po.repo, yum.packages.FakeRepository)
+    ]
 
     # Download drpm
     downloaded_drpm_pkgs = download_drpm(conduit, pkglist)
