@@ -10,9 +10,18 @@ Feature:
 
 ## Download
 
-You can get the program from https://github.com/crook/yum-axelget/releases
+You can get the program from https://github.com/crook/yum-axelget/releases.
+
+or get latest codes:
+
+    git clone https://github.com/crook/yum-axelget
 
 ## Installation
+
+Before install yum-axelget, you need to install the following dependences:
+
+    sudo yum install axel
+    sudo yum install yum-plugin-fastestmirror
 
 Now 'yum-axelget' are in Fedora Official Repository. 
 On Fedora, use this command to install:
@@ -27,7 +36,7 @@ or:
 
 ## Debug
 
-Run "sudo /usr/bin/yum --debuglevel=3 YumCommand"
+Run `sudo /usr/bin/yum --debuglevel=3 YumCommand`
 
 Please send the console output of the above command for help and support
 
@@ -40,12 +49,14 @@ Please send the console output of the above command for help and support
 
 ## Help&Support
 
+Disable axelget plugin firstly to check yum is working well:
+
+    sudo yum --disableplugin=axelget YumCommand
+
+If yes, it should be a bug with yum-axelget.
+
 Please report your problem by create a new issue in github:
 https://github.com/crook/yum-axelget/issues
 
 Or send email to Ray Chen <chenrano2002@gmail.com>
-
-Or visit this website for help
-http://yum-axelget.googlecode.com/
-
 

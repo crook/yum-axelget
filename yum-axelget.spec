@@ -1,5 +1,5 @@
 %define build_number 0.5
-%define snapshot .20140515
+%define snapshot .20140523
 %define source_folder yum-axelget-svn-trunk
 Name:           yum-axelget
 Version:        1.0
@@ -20,7 +20,7 @@ Requires:       axel
 Developed by Ray Chen and Wesley Wang from China.
 Built by Amos Kong <kongjianjun@gmail.com>.
 
-The latest code can be found in SVN:
+The latest code can be found in github:
 https://github.com/crook/yum-axelget
 
 
@@ -52,7 +52,10 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
-* Thu May 15 2014 Ray Chen <chenrano2002@gmail.com> - 1.0-0.5.20140405
+* Thu Fri 23 2014 Ray Chen <chenrano2002@gmail.com> - 1.0.5.20140523
+- Fix #7 to take care of yum localinstall package
+
+* Thu May 15 2014 Ray Chen <chenrano2002@gmail.com> - 1.0-0.5.20140515
 - Update pep8 coding style
 - Skip import drpm module for old Centos/Fedora distribution
 
