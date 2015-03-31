@@ -517,10 +517,10 @@ the following big file: %d bytes" % (PkgIdx, TotalPkg, totsize))
             mirrors[:0] = [preffermirror]
         for url in mirrors:
             if url.startswith("ftp://") and httpdownloadonly:
-                conduct.info(2, "Skip Ftp Site: %s" % url)
+                conduit.info(2, "Skip Ftp Site: %s" % url)
                 continue
             if url.startswith("file://"):
-                conduct.info(2, "Skip local Site: %s" % url)
+                conduit.info(2, "Skip local Site: %s" % url)
                 continue
 
             curmirroridx += 1
